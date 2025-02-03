@@ -2,14 +2,11 @@
 package routes
 
 import (
-	"github.com/gofiber/fiber/v2"
 	"trailer_chatbot/handlers"
+
+	"github.com/gofiber/fiber/v2"
 )
 
-// SetupRouter initializes the Fiber app and routes
-func SetupRouter() *fiber.App {
-	app := fiber.New()
+func SetupRouter(app *fiber.App) {
 	app.Post("/chat", handlers.ChatbotHandler)
-	return app
 }
-
