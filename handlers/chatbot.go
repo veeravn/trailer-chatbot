@@ -3,8 +3,9 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/gofiber/fiber/v2"
 	"trailer_chatbot/database"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 // ChatbotHandler handles chatbot requests
@@ -31,8 +32,10 @@ func processChat(message string) string {
 		return assignTrailer()
 	case "complete":
 		return completeTrailerTasks()
+	case "list trailers":
+		return getTrailerList()
 	default:
-		return "I can help with unloading tasks. Try 'status', 'assign', or 'complete'."
+		return "I can help with unloading tasks. Try 'list trailers', 'status', 'assign', or 'complete'."
 	}
 }
 
@@ -63,3 +66,19 @@ func completeTrailerTasks() string {
 	return "All assigned trailers marked as completed."
 }
 
+// getTrailerList retrieves the list of trailers from the database
+func getTrailerList() string {
+	var trailers []database.Trailer
+	database.DB.Find(&trailers)
+
+	if len(trailers) == 0 {
+		return "No trailers found."
+	}
+
+	var trailerList string
+	for i, trailer := range trailers {
+		trailerList += fmt.Sprintf("%d. %d\n", i+1, trailer.ID)
+	}
+
+	return "Here are the available trailers:\n" + trailerList
+}
