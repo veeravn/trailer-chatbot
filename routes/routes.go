@@ -9,4 +9,5 @@ import (
 
 func SetupRouter(app *fiber.App) {
 	app.Post("/chat", handlers.ChatbotHandler)
+	app.Post("/dashboard", handlers.DashboardHandler)
 }
