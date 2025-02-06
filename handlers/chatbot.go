@@ -24,6 +24,7 @@ func ChatbotHandler(c *fiber.Ctx) error {
 	}
 
 	response := processChat(req.Message)
+	println(req.Message)
 	return c.JSON(fiber.Map{"response": response})
 }
 
@@ -32,12 +33,12 @@ func DashboardHandler(c *fiber.Ctx) error {
 	var totalTrailers, completed, pending int64
 	database.DB.Model(&database.Trailer{}).Count(&totalTrailers)
 	database.DB.Model(&database.Trailer{}).Where("status = ?", "Completed").Count(&completed)
-	database.DB.Model(&database.Trailer{}).Where("status = ?", "Pending").Count(&pending)
+	database.DB.Model(&database.Trailer{}).Where("status = ?", "pending").Count(&pending)
 
 	return c.JSON(fiber.Map{
-		"total_trailers": totalTrailers,
-		"completed":      completed,
-		"pending":        pending,
+		"total":     totalTrailers,
+		"completed": completed,
+		"pending":   pending,
 	})
 }
 
@@ -93,7 +94,7 @@ func findTrailer(message string) string {
 func generateReport() string {
 	var completed, pending int64
 	database.DB.Model(&database.Trailer{}).Where("status = ?", "Completed").Count(&completed)
-	database.DB.Model(&database.Trailer{}).Where("status = ?", "Pending").Count(&pending)
+	database.DB.Model(&database.Trailer{}).Where("status = ?", "pending").Count(&pending)
 
 	return fmt.Sprintf("Unloading Report:\n- Completed Trailers: %d\n- Pending Trailers: %d", completed, pending)
 }
@@ -125,7 +126,16 @@ func assignTrailer(message string) string {
 	dockName := parts[5]
 
 	// Update database
-	database.DB.Model(&database.Trailer{}).Where("id = ?", trailerID).Update("dock", dockName)
+
+	var trailer database.Trailer
+
+	res := database.DB.First(&trailer, "number = ?", trailerID)
+	if res.Error != nil {
+		trailer = database.Trailer{Number: trailerID, Status: "pending", DockingBay: dockName}
+		database.DB.Create(&trailer)
+	} else {
+		database.DB.Model(&trailer).Update("docking_bay", dockName)
+	}
 
 	return fmt.Sprintf("Trailer %s assigned to Dock %s.", trailerID, dockName)
 }
@@ -152,7 +162,7 @@ func getDashboardStatus() string {
 	var totalTrailers, completed, pending int64
 	database.DB.Model(&database.Trailer{}).Count(&totalTrailers)
 	database.DB.Model(&database.Trailer{}).Where("status = ?", "Completed").Count(&completed)
-	database.DB.Model(&database.Trailer{}).Where("status = ?", "Pending").Count(&pending)
+	database.DB.Model(&database.Trailer{}).Where("status = ?", "pending").Count(&pending)
 
 	return fmt.Sprintf("Dashboard Status:\n- Total Trailers: %d\n- Completed: %d\n- Pending: %d", totalTrailers, completed, pending)
 }
