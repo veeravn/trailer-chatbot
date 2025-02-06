@@ -1,4 +1,16 @@
-export function Input({ value, onChange, placeholder, className }: { value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; placeholder?: string; className?: string }) {
-  return <input type="text" value={value} onChange={onChange} placeholder={placeholder} className={`border p-2 rounded-md ${className}`} />;
+import React from "react";
+
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  className?: string;
 }
 
+export const Input: React.FC<InputProps> = ({ className, ...props }) => {
+  return (
+    <input
+      {...props}
+      className={`border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
+    />
+  );
+};
+
+export default Input;

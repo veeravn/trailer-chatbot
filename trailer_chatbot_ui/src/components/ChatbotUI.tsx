@@ -52,6 +52,12 @@ export default function ChatbotUI() {
     }
   };
 
+  const sendMessageOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      sendMessage();
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
       <h1 className="text-3xl font-bold mb-4">📊 Trailer Unloading Dashboard</h1>
@@ -94,9 +100,10 @@ export default function ChatbotUI() {
               </CardContent>
             </Card>
             <div className="flex gap-2 mt-2">
-              <Input
+              <Input 
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={sendMessageOnEnter}
                 placeholder="Type a message..."
                 className="flex-1 border p-2 rounded-md"
               />
