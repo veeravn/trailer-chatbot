@@ -8,10 +8,15 @@ import {
 
 const DASHBOARD_API = "http://localhost:3000/dashboard";
 const CHAT_API = "http://localhost:3000/chat";
+const WS_URL = "ws://localhost:3000/ws";
 
 type ChatMessage = {
-  role: "User" | "Bot";
+  role: "User" | "Bot" | "Other";
   content: string;
+};
+
+type User = {
+  id: string;
 };
 
 export default function ChatbotUI() {
@@ -19,12 +24,30 @@ export default function ChatbotUI() {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isChatActive, setIsChatActive] = useState(false);
   const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0 });
+  const [user, setUser] = useState<User>({ id: "" });
+  const [recipient, setRecipient] = useState("");
+  const [socket, setSocket] = useState<WebSocket | null>(null);
 
   useEffect(() => {
     fetch(DASHBOARD_API)
       .then((res) => res.json())
       .then((data) => setStats(data))
       .catch((error) => console.error("Error fetching dashboard data:", error));
+  }, []);
+
+  useEffect(() => {
+    const userId = localStorage.getItem("userId") || `user-${Date.now()}`;
+    localStorage.setItem("userId", userId);
+    setUser({ id: userId });
+
+    const ws = new WebSocket(`${WS_URL}?userId=${userId}`);
+    ws.onmessage = (event) => {
+      const messageData = JSON.parse(event.data);
+      setChatHistory((prev) => [...prev, { role: messageData.role, content: messageData.content }]);
+    };
+    setSocket(ws);
+
+    return () => ws.close();
   }, []);
 
   const chartData: { name: string; value: number }[] = [
@@ -43,7 +66,7 @@ export default function ChatbotUI() {
       const response = await fetch(CHAT_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ userId: user.id, recipientId: recipient, message }),
       });
       const data = await response.json();
       setChatHistory((prev) => [...prev, { role: "Bot", content: data.response }]);
@@ -52,7 +75,7 @@ export default function ChatbotUI() {
     }
   };
 
-  const sendMessageOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       sendMessage();
     }
@@ -87,9 +110,15 @@ export default function ChatbotUI() {
         {isChatActive && (
           <div className="fixed bottom-16 right-4 bg-white shadow-lg rounded-lg w-80 h-96 p-4 border flex flex-col">
             <div className="flex justify-between items-center border-b pb-2">
-              <h2 className="text-lg font-semibold">Chatbot</h2>
+              <h2 className="text-lg font-semibold">Chat</h2>
               <Button className="text-red-500" onClick={() => setIsChatActive(false)}>X</Button>
             </div>
+            <Input
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              placeholder="Enter recipient ID"
+              className="border p-2 rounded-md mb-2"
+            />
             <Card className="flex-grow overflow-y-auto p-2">
               <CardContent>
                 {chatHistory.map((chat, index) => (
@@ -100,10 +129,10 @@ export default function ChatbotUI() {
               </CardContent>
             </Card>
             <div className="flex gap-2 mt-2">
-              <Input 
+              <Input
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={sendMessageOnEnter}
+                onKeyDown={handleKeyPress}
                 placeholder="Type a message..."
                 className="flex-1 border p-2 rounded-md"
               />
