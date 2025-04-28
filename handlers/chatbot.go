@@ -4,13 +4,54 @@ package handlers
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"trailer_chatbot/database"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
 )
 
-var activeConnections = make(map[*websocket.Conn]bool)
+type Message struct {
+	SenderID    string `json:"senderId"`
+	RecipientID string `json:"recipientId"`
+	Content     string `json:"content"`
+}
+
+var activeConnections = struct {
+	mu          sync.Mutex
+	connections map[string]*websocket.Conn
+}{connections: make(map[string]*websocket.Conn)}
+
+// WebSocketHandler manages WebSocket connections for real-time chat
+func WebSocketHandler(c *websocket.Conn) {
+	userID := c.Query("userId")
+	if userID == "" {
+		c.Close()
+		return
+	}
+
+	activeConnections.mu.Lock()
+	activeConnections.connections[userID] = c
+	activeConnections.mu.Unlock()
+
+	defer func() {
+		activeConnections.mu.Lock()
+		delete(activeConnections.connections, userID)
+		activeConnections.mu.Unlock()
+		c.Close()
+	}()
+
+	for {
+		var msg Message
+		if err := c.ReadJSON(&msg); err != nil {
+			break
+		}
+
+		if conn, ok := activeConnections.connections[msg.RecipientID]; ok {
+			conn.WriteJSON(msg)
+		}
+	}
+}
 
 // ChatbotHandler handles chatbot requests
 func ChatbotHandler(c *fiber.Ctx) error {
@@ -40,6 +81,21 @@ func DashboardHandler(c *fiber.Ctx) error {
 		"completed": completed,
 		"pending":   pending,
 	})
+}
+
+// ProcessChatHandler handles one-to-one chat messages
+func ProcessChatHandler(c *fiber.Ctx) error {
+	var msg Message
+	if err := c.BodyParser(&msg); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request"})
+	}
+
+	if conn, ok := activeConnections.connections[msg.RecipientID]; ok {
+		conn.WriteJSON(msg)
+		return c.JSON(fiber.Map{"status": "Message sent successfully"})
+	}
+
+	return c.JSON(fiber.Map{"status": "Recipient not online, message stored"})
 }
 
 // processChat processes chatbot messages
